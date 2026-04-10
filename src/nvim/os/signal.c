@@ -6,6 +6,7 @@
 # include <signal.h>
 #endif
 
+#include "nvim/api/private/helpers.h"
 #include "nvim/autocmd.h"
 #include "nvim/autocmd_defs.h"
 #include "nvim/buffer_defs.h"
@@ -16,8 +17,10 @@
 #include "nvim/globals.h"
 #include "nvim/log.h"
 #include "nvim/main.h"
+#include "nvim/msgpack_rpc/channel.h"
 #include "nvim/option_vars.h"
 #include "nvim/os/signal.h"
+#include "nvim/ui_client.h"
 
 #ifdef SIGPWR
 # include "nvim/memline.h"
@@ -207,6 +210,9 @@ static void deadly_signal(int signum)
 
 static void on_signal(SignalWatcher *handle, int signum, void *data)
 {
+  MAXSIZE_TEMP_ARRAY(args, 1);
+  ADD(args, STRING_OBJ(cstr_as_string("detach")));
+
   assert(signum >= 0);
   switch (signum) {
 #ifdef SIGPWR
@@ -228,6 +234,8 @@ static void on_signal(SignalWatcher *handle, int signum, void *data)
     break;
 #endif
   case SIGHUP:
+  rpc_send_event(ui_client_channel_id, "nvim_command", args);
+  break;
 #ifdef MSWIN
     os_clear_hwnd();
 #endif
